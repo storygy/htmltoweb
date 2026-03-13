@@ -410,20 +410,26 @@ export function DashboardClient() {
             </div>
 
             <div className="text-center mb-6">
-              <p className="text-gray-600 mb-4">扫描二维码或复制链接分享</p>
+              <p className="text-gray-600 mb-4">分享到微信</p>
               <div className="bg-white p-4 inline-block rounded-lg border">
                 <QRCodeSVG
                   value={`${window.location.origin}/view/${shareApp.id}`}
-                  size={180}
+                  size={200}
                   level="H"
                   includeMargin
+                  imageSettings={{
+                    src: '/favicon.ico',
+                    height: 32,
+                    width: 32,
+                    excavate: true,
+                  }}
                 />
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="label">分享链接</label>
+                <label className="label">链接分享（推荐）</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -435,15 +441,33 @@ export function DashboardClient() {
                     onClick={() => copyShareLink(shareApp.id)}
                     className="btn-primary whitespace-nowrap"
                   >
-                    复制
+                    复制链接
                   </button>
                 </div>
               </div>
+
+              <button
+                onClick={() => {
+                  const shareUrl = `${window.location.origin}/view/${shareApp.id}`
+                  navigator.clipboard.writeText(
+                    `【${shareApp.title}】\n打开链接即可查看：${shareUrl}\n\n提示：点击右上角...选择「在浏览器中打开」即可`
+                  )
+                  alert('分享文案已复制，请到微信粘贴发送给好友')
+                }}
+                className="btn-secondary w-full flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                复制微信分享文案
+              </button>
             </div>
 
-            <p className="text-sm text-gray-500 mt-4 text-center">
-              此链接可以在微信中直接打开
-            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+              <p className="text-sm text-amber-800">
+                <strong>微信分享提示：</strong>复制链接发送给微信好友后，好友点击链接会提示"在浏览器中打开"，点击后即可正常查看。
+              </p>
+            </div>
           </div>
         </div>
       )}

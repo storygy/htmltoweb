@@ -20,6 +20,10 @@ ALTER TABLE public.apps ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own apps" ON public.apps
   FOR SELECT USING (auth.uid() = user_id);
 
+-- Anyone can view apps (public sharing)
+CREATE POLICY "Anyone can view apps" ON public.apps
+  FOR SELECT USING (true);
+
 -- Users can insert their own apps
 CREATE POLICY "Users can insert their own apps" ON public.apps
   FOR INSERT WITH CHECK (auth.uid() = user_id);

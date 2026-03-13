@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabasePublic } from '@/lib/supabase-public'
 import { App } from '@/lib/types'
 
 interface ViewClientProps {
@@ -22,7 +22,7 @@ export function ViewClient({ appId }: ViewClientProps) {
 
     // Fetch app data and HTML content
     const fetchApp = async () => {
-      const { data: appData, error: appError } = await supabase
+      const { data: appData, error: appError } = await supabasePublic
         .from('apps')
         .select('*')
         .eq('id', appId)
@@ -37,7 +37,7 @@ export function ViewClient({ appId }: ViewClientProps) {
       setApp(appData)
 
       // Get public URL and fetch content
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = supabasePublic.storage
         .from('user-apps')
         .getPublicUrl(appData.storage_path)
 

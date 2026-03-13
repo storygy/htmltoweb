@@ -166,6 +166,38 @@ export function DashboardClient() {
     return data.publicUrl
   }
 
+  // 获取HTML内容并渲染（绕过Content-Type问题）
+  const [htmlContents, setHtmlContents] = useState<Record<string, string>>({})
+  const [loadingPreview, setLoadingPreview] = useState<string | null>(null)
+
+  const loadHtmlContent = async (appId: string, storagePath: string) => {
+    if (htmlContents[appId]) return htmlContents[appId]
+    if (loadingPreview === appId) return null
+
+    setLoadingPreview(appId)
+    try {
+      const publicUrl = getPublicUrl(storagePath)
+      const response = await fetch(publicUrl)
+      const text = await response.text()
+      setHtmlContents(prev => ({ ...prev, [appId]: text }))
+      setLoadingPreview(null)
+      return text
+    } catch (error) {
+      console.error('Failed to load HTML:', error)
+      setLoadingPreview(null)
+      return null
+    }
+  }
+
+  // 加载卡片预览的HTML内容
+  useEffect(() => {
+    apps.forEach(app => {
+      if (!htmlContents[app.id]) {
+        loadHtmlContent(app.id, app.storage_path)
+      }
+    })
+  }, [apps])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -258,12 +290,18 @@ export function DashboardClient() {
             <div key={app.id} className="card hover:shadow-lg transition-shadow">
               {/* Preview Thumbnail */}
               <div className="aspect-video bg-gray-100 rounded-lg mb-4 overflow-hidden relative">
-                <iframe
-                  src={getPublicUrl(app.storage_path)}
-                  className="w-full h-full"
-                  title={app.title}
-                  sandbox="allow-same-origin"
-                />
+                {htmlContents[app.id] ? (
+                  <iframe
+                    srcDoc={htmlContents[app.id]}
+                    className="w-full h-full"
+                    title={app.title}
+                    sandbox="allow-same-origin"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
 
               {/* App Info */}
@@ -338,12 +376,18 @@ export function DashboardClient() {
               </button>
             </div>
             <div className="h-[70vh]">
-              <iframe
-                src={getPublicUrl(previewApp.storage_path)}
-                className="w-full h-full"
-                title={previewApp.title}
-                sandbox="allow-same-origin allow-scripts"
-              />
+              {htmlContents[previewApp.id] ? (
+                <iframe
+                  srcDoc={htmlContents[previewApp.id]}
+                  className="w-full h-full"
+                  title={previewApp.title}
+                  sandbox="allow-same-origin allow-scripts"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
             </div>
           </div>
         </div>

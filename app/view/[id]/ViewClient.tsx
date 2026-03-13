@@ -10,7 +10,7 @@ interface ViewClientProps {
 
 export function ViewClient({ appId }: ViewClientProps) {
   const [app, setApp] = useState<App | null>(null)
-  const [htmlUrl, setHtmlUrl] = useState<string>('')
+  const [htmlContent, setHtmlContent] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [isWechat, setIsWechat] = useState(false)
@@ -20,28 +20,36 @@ export function ViewClient({ appId }: ViewClientProps) {
     const ua = navigator.userAgent.toLowerCase()
     setIsWechat(ua.indexOf('micromessenger') > -1)
 
-    // Fetch app data
+    // Fetch app data and HTML content
     const fetchApp = async () => {
-      const { data, error } = await supabase
+      const { data: appData, error: appError } = await supabase
         .from('apps')
         .select('*')
         .eq('id', appId)
         .single()
 
-      if (error || !data) {
+      if (appError || !appData) {
         setError('应用不存在或已被删除')
         setLoading(false)
         return
       }
 
-      setApp(data)
+      setApp(appData)
 
-      // Get public URL
+      // Get public URL and fetch content
       const { data: urlData } = supabase.storage
         .from('user-apps')
-        .getPublicUrl(data.storage_path)
+        .getPublicUrl(appData.storage_path)
 
-      setHtmlUrl(urlData.publicUrl)
+      try {
+        const response = await fetch(urlData.publicUrl)
+        const text = await response.text()
+        setHtmlContent(text)
+      } catch (fetchError) {
+        console.error('Failed to fetch HTML:', fetchError)
+        setError('无法加载应用内容')
+      }
+
       setLoading(false)
     }
 
@@ -122,12 +130,21 @@ export function ViewClient({ appId }: ViewClientProps) {
   return (
     <div className="min-h-screen bg-white">
       {/* Full Screen Iframe */}
-      <iframe
-        src={htmlUrl}
-        className="w-full h-screen border-none"
-        title={app?.title || '应用'}
-        sandbox="allow-same-origin allow-scripts allow-top-navigation allow-forms"
-      />
+      {htmlContent ? (
+        <iframe
+          srcDoc={htmlContent}
+          className="w-full h-screen border-none"
+          title={app?.title || '应用'}
+          sandbox="allow-same-origin allow-scripts allow-top-navigation allow-forms"
+        />
+      ) : (
+        <div className="w-full h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">加载中...</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

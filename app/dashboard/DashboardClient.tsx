@@ -1,30 +1,48 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { User, App } from '@/lib/types'
-import Link from 'next/link'
+import { App } from '@/lib/types'
 import { QRCodeSVG } from 'qrcode.react'
 
-interface DashboardClientProps {
-  user: User
-  initialApps: App[]
-}
-
-export function DashboardClient({ user, initialApps }: DashboardClientProps) {
-  const [apps, setApps] = useState<App[]>(initialApps)
+export function DashboardClient() {
+  const [user, setUser] = useState<any>(null)
+  const [apps, setApps] = useState<App[]>([])
+  const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [selectedApp, setSelectedApp] = useState<App | null>(null)
   const [previewApp, setPreviewApp] = useState<App | null>(null)
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [shareApp, setShareApp] = useState<App | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
+  // 加载用户和应用数据
+  useEffect(() => {
+    const loadData = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        window.location.href = '/login'
+        return
+      }
+      setUser(user)
+
+      // 获取用户应用
+      const { data: apps } = await supabase
+        .from('apps')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      setApps(apps || [])
+      setLoading(false)
+    }
+    loadData()
+  }, [])
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file || !user) return
 
     if (!file.name.endsWith('.html')) {
       alert('请上传 HTML 文件')
@@ -40,12 +58,10 @@ export function DashboardClient({ user, initialApps }: DashboardClientProps) {
     setUploadProgress(0)
 
     try {
-      // Generate unique file path
       const fileExt = 'html'
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
       const storagePath = `${user.id}/${fileName}`
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('user-apps')
         .upload(storagePath, file, {
@@ -59,15 +75,8 @@ export function DashboardClient({ user, initialApps }: DashboardClientProps) {
 
       setUploadProgress(50)
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('user-apps')
-        .getPublicUrl(storagePath)
-
-      // Extract title from filename
       const title = file.name.replace('.html', '')
 
-      // Save to database
       const { data: appData, error: dbError } = await supabase
         .from('apps')
         .insert({
@@ -85,12 +94,10 @@ export function DashboardClient({ user, initialApps }: DashboardClientProps) {
 
       setUploadProgress(100)
 
-      // Add to local state
       if (appData) {
         setApps([appData, ...apps])
       }
 
-      // Reset file input
       e.target.value = ''
 
       setTimeout(() => {
@@ -106,23 +113,19 @@ export function DashboardClient({ user, initialApps }: DashboardClientProps) {
   }
 
   const handleDelete = async (appId: string) => {
-    try {
-      // Get app data
-      const app = apps.find(a => a.id === appId)
-      if (!app) return
+    const app = apps.find(a => a.id === appId)
+    if (!app) return
 
-      // Delete from storage
+    try {
       await supabase.storage
         .from('user-apps')
         .remove([app.storage_path])
 
-      // Delete from database
       await supabase
         .from('apps')
         .delete()
         .eq('id', appId)
 
-      // Update local state
       setApps(apps.filter(a => a.id !== appId))
       setDeleteConfirm(null)
     } catch (error) {
@@ -160,6 +163,14 @@ export function DashboardClient({ user, initialApps }: DashboardClientProps) {
       .from('user-apps')
       .getPublicUrl(storagePath)
     return data.publicUrl
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
 
   return (
@@ -252,7 +263,6 @@ export function DashboardClient({ user, initialApps }: DashboardClientProps) {
                   title={app.title}
                   sandbox="allow-same-origin"
                 />
-                <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors" />
               </div>
 
               {/* App Info */}

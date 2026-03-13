@@ -1,30 +1,52 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 import { App } from '@/lib/types'
 
 interface ViewClientProps {
-  app: App
-  htmlUrl: string
+  appId: string
 }
 
-export function ViewClient({ app, htmlUrl }: ViewClientProps) {
+export function ViewClient({ appId }: ViewClientProps) {
+  const [app, setApp] = useState<App | null>(null)
+  const [htmlUrl, setHtmlUrl] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>('')
   const [isWechat, setIsWechat] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     // Detect WeChat browser
     const ua = navigator.userAgent.toLowerCase()
-    const isWechatBrowser = ua.indexOf('micromessenger') > -1
-    setIsWechat(isWechatBrowser)
+    setIsWechat(ua.indexOf('micromessenger') > -1)
 
-    // Hide loading after iframe loads
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 2000)
+    // Fetch app data
+    const fetchApp = async () => {
+      const { data, error } = await supabase
+        .from('apps')
+        .select('*')
+        .eq('id', appId)
+        .single()
 
-    return () => clearTimeout(timer)
-  }, [])
+      if (error || !data) {
+        setError('应用不存在或已被删除')
+        setLoading(false)
+        return
+      }
+
+      setApp(data)
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('user-apps')
+        .getPublicUrl(data.storage_path)
+
+      setHtmlUrl(urlData.publicUrl)
+      setLoading(false)
+    }
+
+    fetchApp()
+  }, [appId])
 
   // WeChat browser detection and guidance
   if (isWechat) {
@@ -64,43 +86,46 @@ export function ViewClient({ app, htmlUrl }: ViewClientProps) {
                 </button>
               </div>
             </div>
-            <button
-              onClick={() => setIsWechat(false)}
-              className="mt-6 text-primary-500 text-sm"
-            >
-              仍然继续访问
-            </button>
           </div>
         </div>
+      </div>
+    )
+  }
 
-        {/* Hidden iframe that will load */}
-        <iframe
-          src={htmlUrl}
-          className="w-full h-screen hidden"
-          title={app.title}
-          sandbox="allow-same-origin allow-scripts allow-top-navigation"
-        />
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">出错了</h2>
+          <p className="text-gray-600">{error}</p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Loading State */}
-      {isLoading && (
-        <div className="fixed inset-0 bg-white flex items-center justify-center z-40">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-gray-600">正在加载应用...</p>
-          </div>
-        </div>
-      )}
-
       {/* Full Screen Iframe */}
       <iframe
         src={htmlUrl}
         className="w-full h-screen border-none"
-        title={app.title}
+        title={app?.title || '应用'}
         sandbox="allow-same-origin allow-scripts allow-top-navigation allow-forms"
       />
     </div>

@@ -67,6 +67,7 @@ export function DashboardClient() {
         .upload(storagePath, file, {
           cacheControl: '3600',
           upsert: false,
+          contentType: 'text/html',
         })
 
       if (uploadError) {
